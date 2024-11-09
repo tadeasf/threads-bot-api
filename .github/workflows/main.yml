@@ -1,0 +1,64 @@
+name: Main Branch
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      deployments: write
+    environment:
+      name: prod
+      url: https://${{ vars.APP_DOMAIN }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/threads-bot-api:latest
+            ghcr.io/${{ github.repository }}/threads-bot-api:${{ github.sha }}
+
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1.0.0
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository }}/threads-bot-api:${{ github.sha }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DEPLOY_IMAGE
+          script: |
+            docker pull $DEPLOY_IMAGE
+            docker compose down
+            IMAGE_TAG=${{ github.sha }} docker compose up -d
+
+      - name: Smoke test
+        run: |
+          ./scripts/smoke-test.sh --url "https://${{ vars.APP_DOMAIN }}"
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            docker compose down
+            IMAGE_TAG=latest docker compose up -d

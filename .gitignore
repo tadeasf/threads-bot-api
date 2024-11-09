@@ -176,3 +176,5 @@ dist
 
 scalar-docs
 threads-docs
+.env.development
+.env.production

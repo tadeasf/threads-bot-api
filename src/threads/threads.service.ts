@@ -1,55 +1,147 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CreatePostDto } from './dto/create-post.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class ThreadsService {
   private readonly logger = new Logger(ThreadsService.name);
   private readonly graphqlEndpoint = 'https://graph.threads.net/v1.0';
+  private stateStore: Map<string, { timestamp: number }> = new Map();
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    this.validateConfig();
+  }
 
-  async getAuthorizationUrl(): Promise<string> {
-    const appId = this.configService.get<string>('THREADS_APP_ID');
-    const redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
-    const scopes = [
-      'threads_basic',
-      'threads_content_publish',
-      'threads_manage_insights',
-      'threads_manage_replies',
-      'threads_read_replies'
+  private validateConfig() {
+    const requiredVars = [
+      'THREADS_APP_ID',
+      'THREADS_APP_SECRET',
+      'THREADS_REDIRECT_URI'
     ];
 
-    return `https://www.threads.net/oauth/authorize?` +
-      `client_id=${appId}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `scope=${encodeURIComponent(scopes.join(','))}&` +
-      `response_type=code`;
+    for (const varName of requiredVars) {
+      const value = this.configService.get<string>(varName);
+      if (!value) {
+        throw new Error(`Missing required environment variable: ${varName}`);
+      }
+    }
+  }
+
+  async getAuthorizationUrl(): Promise<string> {
+    try {
+      const appId = this.configService.get<string>('THREADS_APP_ID');
+      const redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
+      
+      // Generate state for CSRF protection
+      const state = crypto.randomBytes(32).toString('hex');
+      this.stateStore.set(state, { 
+        timestamp: Date.now() 
+      });
+
+      // Clean up old states
+      this.cleanupStates();
+
+      const scopes = [
+        'threads_basic',
+        'threads_content_publish',
+        'threads_manage_insights',
+        'threads_manage_replies',
+        'threads_read_replies'
+      ];
+
+      return `https://www.threads.net/oauth/authorize?` +
+        `client_id=${appId}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `scope=${encodeURIComponent(scopes.join(','))}&` +
+        `state=${state}&` +
+        `response_type=code`;
+    } catch (error) {
+      this.logger.error(`Failed to generate auth URL: ${error.message}`);
+      throw new InternalServerErrorException('Failed to generate authorization URL');
+    }
+  }
+
+  async verifyState(state: string) {
+    const storedState = this.stateStore.get(state);
+    if (!storedState) {
+      throw new BadRequestException('Invalid state parameter');
+    }
+
+    // Check if state is not expired (30 minutes)
+    if (Date.now() - storedState.timestamp > 30 * 60 * 1000) {
+      this.stateStore.delete(state);
+      throw new BadRequestException('State parameter expired');
+    }
+
+    // Clean up used state
+    this.stateStore.delete(state);
+  }
+
+  private cleanupStates() {
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    for (const [state, data] of this.stateStore.entries()) {
+      if (data.timestamp < thirtyMinutesAgo) {
+        this.stateStore.delete(state);
+      }
+    }
+  }
+
+  private async makeRequest(url: string, options: RequestInit = {}) {
+    const headers = {
+      ...options.headers,
+      'bypass-tunnel-reminder': '1',
+      'User-Agent': 'ThreadsBotAPI/1.0'
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers
+    });
+
+    return response;
   }
 
   async exchangeCodeForToken(code: string) {
-    const appId = this.configService.get<string>('THREADS_APP_ID');
-    const appSecret = this.configService.get<string>('THREADS_APP_SECRET');
-    const redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
+    try {
+      const appId = this.configService.get<string>('THREADS_APP_ID');
+      const appSecret = this.configService.get<string>('THREADS_APP_SECRET');
+      const redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
 
-    const response = await fetch('https://graph.threads.net/oauth/access_token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: appId,
-        client_secret: appSecret,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-        code,
-      }),
-    });
+      const response = await this.makeRequest(
+        'https://graph.threads.net/oauth/access_token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: appId,
+            client_secret: appSecret,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            code,
+          })
+        }
+      );
 
-    const data = await response.json();
-    return {
-      accessToken: data.access_token,
-      userId: data.user_id,
-      expiresIn: data.expires_in,
-    };
+      if (!response.ok) {
+        const error = await response.json();
+        throw new BadRequestException(error.error?.message || 'Failed to exchange code for token');
+      }
+
+      const data = await response.json();
+      return {
+        accessToken: data.access_token,
+        userId: data.user_id,
+        expiresIn: data.expires_in,
+        tokenType: data.token_type
+      };
+    } catch (error) {
+      this.logger.error(`Failed to exchange code: ${error.message}`);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to exchange code for token');
+    }
   }
 
   async createPost(token: string, post: CreatePostDto) {
@@ -131,5 +223,13 @@ export class ThreadsService {
     });
     
     return response.json();
+  }
+
+  private async handleTunnelError(error: any) {
+    if (error.message.includes('401')) {
+      this.logger.error('Tunnel authentication required. Check logs for password.');
+      throw new UnauthorizedException('Tunnel authentication required');
+    }
+    throw error;
   }
 } 
