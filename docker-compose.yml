@@ -5,9 +5,14 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
-      - "80:3000"
-      - "443:3000" # If you'll use HTTPS
-    env_file:
-      - .env.production
-    volumes:
-      - ./data:/app/data
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - THREADS_APP_ID=${THREADS_APP_ID}
+      - THREADS_APP_SECRET=${THREADS_APP_SECRET}
+      - THREADS_REDIRECT_URI=${THREADS_REDIRECT_URI}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3

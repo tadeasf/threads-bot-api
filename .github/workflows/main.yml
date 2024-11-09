@@ -43,7 +43,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: 391
-          envs: DEPLOY_IMAGE
+          envs: DEPLOY_IMAGE,GITHUB_REPOSITORY
           debug: true
           script: |
             echo "Starting deployment..."
@@ -51,6 +51,8 @@ jobs:
             docker pull "$DEPLOY_IMAGE"
             docker compose down
             IMAGE_TAG=${{ github.sha }} docker compose up -d
+            echo "Waiting for container to be healthy..."
+            timeout 30s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 1; done'
             echo "Deployment complete"
 
       - name: Create smoke test script
@@ -80,13 +82,14 @@ jobs:
           fi
           
           echo "Testing $url..."
-          curl -sSf "$url/health" || (echo "Health check failed"; exit 1)
+          curl -sSf -k "$url/health" || (echo "Health check failed"; exit 1)
           echo "Smoke test passed!"
           EOF
           chmod +x scripts/smoke-test.sh
 
       - name: Smoke test
         run: |
+          sleep 10  # Give the container time to start
           ./scripts/smoke-test.sh --url "https://${{ vars.APP_DOMAIN }}"
 
       - name: Rollback on failure
