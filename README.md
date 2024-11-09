@@ -10,70 +10,114 @@ bun install
 
 ## Configuration
 
-Create a `.env` file in the root directory:
+1. Create a `.env` file in the root directory:
 
 ```env
+# App Configuration
 THREADS_APP_ID=your_app_id
 THREADS_APP_SECRET=your_app_secret
-THREADS_REDIRECT_URI=http://localhost:3000/threads/callback
+THREADS_REDIRECT_URI=https://threads-bot-api.loca.lt/threads/callback
+```
+
+2. Configure Meta App Settings:
+- Add domain: `https://threads-bot-api.loca.lt`
+- Add to Valid OAuth Redirect URIs: `https://threads-bot-api.loca.lt/threads/callback`
+- Set Match Type: `Match prefix`
+- Set Prefetch: `HTML`
+
+## Running with HTTPS (Development)
+
+The Threads API requires HTTPS. We use Docker and localtunnel to handle this:
+
+1. Start the services:
+```bash
+docker-compose up -d
+```
+
+2. Get the tunnel password:
+```bash
+# Check localtunnel logs for the password
+docker-compose logs localtunnel | grep "Tunnel Password"
+```
+
+3. Your API will be available at:
+- HTTPS: https://threads-bot-api.loca.lt
+  - First-time visitors will need the tunnel password
+  - Password is your public IP (shown in localtunnel logs)
+- Local: http://localhost:3000
+
+4. Share the tunnel password with your testers/users
+
+3. Check the logs:
+```bash
+# All services
+docker-compose logs -f
+
+# Just API
+docker-compose logs -f api
+
+# Just localtunnel
+docker-compose logs -f localtunnel
+```
+
+4. Stop the services:
+```bash
+docker-compose down
 ```
 
 ## Authentication Flow
 
-The API implements OAuth2 authentication for Threads with CSRF protection. Here's how it works:
+The API implements OAuth2 authentication for Threads with CSRF protection:
 
 1. **Get Authorization URL or Direct Redirect**
    ```bash
    # Get URL as JSON
-   GET /threads/auth
+   curl https://threads-bot-api.loca.lt/threads/auth
    
    # Direct redirect to Threads auth page
-   GET /threads/auth?redirect=true
+   curl -L https://threads-bot-api.loca.lt/threads/auth?redirect=true
    ```
-   Returns (or redirects to) a URL that includes:
-   - Your app ID
-   - Redirect URI
-   - Required scopes
-   - CSRF state token
 
 2. **User Authorization**
    - User authorizes your app on Threads
-   - Threads redirects back with:
-     - Authorization code
-     - State parameter (for CSRF verification)
+   - Threads redirects back with auth code and state
 
 3. **Exchange Code for Token**
    ```bash
+   # Handled automatically by callback endpoint
    GET /threads/callback?code=AUTHORIZATION_CODE&state=STATE_TOKEN
    ```
-   Returns:
-   - Access token
-   - User ID
-   - Token expiration time
-   - Token type
 
 4. **Using the Token**
    ```bash
-   POST /threads/post
-   Authorization: Bearer YOUR_ACCESS_TOKEN
-   
-   {
-     "text": "Hello from API!",
-     "mediaUrls": ["https://example.com/image.jpg"],
-     "altTexts": ["Image description"],
-     "linkAttachment": "https://example.com"
-   }
+   curl -X POST https://threads-bot-api.loca.lt/threads/post \
+     -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "text": "Hello from API!",
+       "mediaUrls": ["https://example.com/image.jpg"]
+     }'
    ```
+
+## Development
+
+```bash
+# Run locally
+bun run start:dev
+
+# Run with Docker
+docker-compose up
+```
 
 ## Example Usage
 
 1. Start auth flow (two options):
 ```bash
 # Get auth URL
-curl http://localhost:3000/threads/auth
+curl https://threads-bot-api.loca.lt/threads/auth
 
 # Or redirect directly
-curl -L http://localhost:3000/threads/auth?redirect=true
+curl -L https://threads-bot-api.loca.lt/threads/auth?redirect=true
 ```
 
 2. Complete authorization on Threads
@@ -85,26 +129,13 @@ curl -L http://localhost:3000/threads/auth?redirect=true
 
 4. Create a post:
 ```bash
-curl -X POST http://localhost:3000/threads/post \
+curl -X POST https://threads-bot-api.loca.lt/threads/post \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Hello from API!",
     "mediaUrls": ["https://example.com/image.jpg"]
   }'
-```
-
-## Development
-
-```bash
-# Run in development mode
-bun run start:dev
-
-# Build
-bun run build
-
-# Run in production
-bun run start:prod
 ```
 
 ## API Documentation
@@ -156,14 +187,22 @@ The Threads API requires HTTPS. We use Docker and localtunnel to handle this in 
 
 1. Start the services:
 ```bash
-docker-compose up
+docker-compose up -d
 ```
 
-2. Your API will be available at:
-- HTTPS: https://your-subdomain.loca.lt
+2. Get the tunnel password:
+```bash
+# Check localtunnel logs for the password
+docker-compose logs localtunnel | grep "Tunnel Password"
+```
+
+3. Your API will be available at:
+- HTTPS: https://threads-bot-api.loca.lt
+  - First-time visitors will need the tunnel password
+  - Password is your public IP (shown in localtunnel logs)
 - Local: http://localhost:3000
 
-3. Update your Meta App settings:
-- Add `https://your-subdomain.loca.lt/threads/callback` to Valid OAuth Redirect URIs
+4. Share the tunnel password with your testers/users
 
 This project was created using `bun init` in bun v1.1.29. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+

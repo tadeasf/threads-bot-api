@@ -13,9 +13,28 @@ services:
       - .:/app
       - /app/node_modules
     command: bun run start:dev
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   localtunnel:
-    image: efrecon/localtunnel
+    image: node:18-alpine
     depends_on:
       - api
-    command: --port 3000 --subdomain your-subdomain
+    command: >
+      sh -c "
+        echo 'Getting tunnel password...' &&
+        npm install -g localtunnel &&
+        TUNNEL_PASSWORD=$$(wget -q -O - https://loca.lt/mytunnelpassword) &&
+        echo '\n🔑 Tunnel Password: '$$TUNNEL_PASSWORD'\n' &&
+        lt --port 3000 --subdomain threads-bot-api --print-requests"
+    restart: unless-stopped
+    environment:
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "https://threads-bot-api.loca.lt" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -87,23 +87,41 @@ export class ThreadsService {
     }
   }
 
+  private async makeRequest(url: string, options: RequestInit = {}) {
+    const headers = {
+      ...options.headers,
+      'bypass-tunnel-reminder': '1',
+      'User-Agent': 'ThreadsBotAPI/1.0'
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers
+    });
+
+    return response;
+  }
+
   async exchangeCodeForToken(code: string) {
     try {
       const appId = this.configService.get<string>('THREADS_APP_ID');
       const appSecret = this.configService.get<string>('THREADS_APP_SECRET');
       const redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
 
-      const response = await fetch('https://graph.threads.net/oauth/access_token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: appId,
-          client_secret: appSecret,
-          grant_type: 'authorization_code',
-          redirect_uri: redirectUri,
-          code,
-        }),
-      });
+      const response = await this.makeRequest(
+        'https://graph.threads.net/oauth/access_token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: appId,
+            client_secret: appSecret,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            code,
+          })
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
@@ -205,5 +223,13 @@ export class ThreadsService {
     });
     
     return response.json();
+  }
+
+  private async handleTunnelError(error: any) {
+    if (error.message.includes('401')) {
+      this.logger.error('Tunnel authentication required. Check logs for password.');
+      throw new UnauthorizedException('Tunnel authentication required');
+    }
+    throw error;
   }
 } 
