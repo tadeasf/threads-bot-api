@@ -36,6 +36,8 @@ jobs:
 
       - name: Deploy to production
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository }}/threads-bot-api:${{ github.sha }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -45,10 +47,43 @@ jobs:
           debug: true
           script: |
             echo "Starting deployment..."
-            docker pull $DEPLOY_IMAGE
+            echo "Pulling image: $DEPLOY_IMAGE"
+            docker pull "$DEPLOY_IMAGE"
             docker compose down
             IMAGE_TAG=${{ github.sha }} docker compose up -d
             echo "Deployment complete"
+
+      - name: Create smoke test script
+        run: |
+          mkdir -p scripts
+          cat > scripts/smoke-test.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          url=""
+          while [[ $# -gt 0 ]]; do
+            case $1 in
+              --url)
+                url="$2"
+                shift 2
+                ;;
+              *)
+                echo "Unknown option: $1"
+                exit 1
+                ;;
+            esac
+          done
+          
+          if [ -z "$url" ]; then
+            echo "Error: --url parameter is required"
+            exit 1
+          fi
+          
+          echo "Testing $url..."
+          curl -sSf "$url/health" || (echo "Health check failed"; exit 1)
+          echo "Smoke test passed!"
+          EOF
+          chmod +x scripts/smoke-test.sh
 
       - name: Smoke test
         run: |
