@@ -18,9 +18,13 @@
     "@nestjs/common": "^10.4.7",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.4.7",
+    "@nestjs/event-emitter": "^2.1.1",
     "@nestjs/platform-express": "^10.4.7",
+    "@nestjs/schedule": "^4.1.1",
     "@nestjs/swagger": "^8.0.5",
+    "axios": "^1.7.7",
     "graphql-request": "^7.1.2",
+    "localtunnel": "^2.0.2",
     "reflect-metadata": "^0.2.2",
     "swagger-ui-express": "^5.0.1"
   },
@@ -31,6 +35,10 @@
     "start:dev": "bun --watch src/main.ts",
     "start:debug": "bun --inspect-brk src/main.ts",
     "start:prod": "bun dist/main.js",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "deploy:prod": "DEPLOY_ENV=production ./scripts/deploy.sh",
+    "deploy:staging": "DEPLOY_ENV=staging ./scripts/deploy.sh",
+    "monitor:tunnel": "bun run start:monitor",
+    "update:meta": "bun run meta:update"
   }
 }

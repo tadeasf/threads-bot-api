@@ -1,0 +1,38 @@
+groups:
+  - name: ThreadsBotAPI
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High error rate detected
+          description: Error rate is {{ $value | humanize }}% over last 5m
+
+      - alert: TunnelDisconnected
+        expr: tunnel_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Tunnel disconnected
+          description: The localtunnel connection is down
+
+      - alert: TokenExpiringSoon
+        expr: threads_token_expires_seconds < 86400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Token expiring soon
+          description: Access token will expire in less than 24 hours
+
+      - alert: HighRateLimit
+        expr: rate(threads_rate_limit_remaining[5m]) < 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Rate limit running low
+          description: Only {{ $value }} requests remaining in rate limit 
