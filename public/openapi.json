@@ -1,0 +1,216 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/threads/auth-url": {
+      "get": {
+        "operationId": "ThreadsController_getAuthUrl",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns the authorization URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "example": "https://www.threads.net/oauth/authorize?client_id=..."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get authorization URL",
+        "tags": [
+          "threads"
+        ]
+      }
+    },
+    "/threads/callback": {
+      "get": {
+        "operationId": "ThreadsController_handleCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "query",
+            "description": "Authorization code from Threads",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accessToken": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "expiresIn": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Exchange code for token",
+        "tags": [
+          "threads"
+        ]
+      }
+    },
+    "/threads/post": {
+      "post": {
+        "operationId": "ThreadsController_createPost",
+        "parameters": [
+          {
+            "name": "authorization",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token from authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "permalink": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new post",
+        "tags": [
+          "threads"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Threads Bot API",
+    "description": "\nAPI for managing Threads posts and content generation.\n\n## Authentication\nThis API uses OAuth2 for authentication with Threads. The flow is:\n1. Get authorization URL from `/threads/auth-url`\n2. User authorizes the application\n3. Threads redirects to callback URL with code\n4. Exchange code for token using `/threads/callback`\n5. Use token for authenticated requests\n    ",
+    "version": "1.0",
+    "contact": {
+      "name": "Developer",
+      "url": "https://github.com/yourusername",
+      "email": "your@email.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "tags": [
+    {
+      "name": "threads",
+      "description": "Endpoints for interacting with Threads API"
+    },
+    {
+      "name": "chess",
+      "description": "Endpoints for Chess.com integration"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "CreatePostDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The text content of the post",
+            "example": "Check out this amazing chess game!"
+          },
+          "mediaUrls": {
+            "description": "Array of media URLs to attach to the post",
+            "example": [
+              "https://example.com/image.png"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "altTexts": {
+            "description": "Alt text descriptions for media attachments",
+            "example": [
+              "A brilliant chess move by Magnus Carlsen"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "linkAttachment": {
+            "type": "string",
+            "description": "URL to attach as a link",
+            "example": "https://chess.com/game/123"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    }
+  }
+}

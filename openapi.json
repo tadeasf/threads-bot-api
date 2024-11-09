@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.0",
+  "paths": {},
+  "info": {
+    "title": "Threads Bot API",
+    "description": "API for managing Threads posts and authentication",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "threads",
+      "description": ""
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}
