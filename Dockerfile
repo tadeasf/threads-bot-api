@@ -1,21 +1,21 @@
-FROM oven/bun:1.1.29
+# Development stage
+FROM oven/bun:1.1.29 as development
 
 WORKDIR /app
-
-# Copy package files
 COPY package.json bun.lockb ./
-
-# Install dependencies
 RUN bun install
-
-# Copy source code
 COPY . .
-
-# Build the app
 RUN bun run build
 
-# Expose port
-EXPOSE 3000
+# Production stage
+FROM oven/bun:1.1.29 as production
 
-# Start the app
+WORKDIR /app
+COPY package.json bun.lockb ./
+RUN bun install --production
+COPY --from=development /app/dist ./dist
+COPY --from=development /app/public ./public
+
+ENV NODE_ENV=production
+EXPOSE 3000
 CMD ["bun", "run", "start:prod"] 
