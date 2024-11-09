@@ -30,8 +30,9 @@ export class ThreadsController {
     }
   })
   @Get('auth-url')
-  getAuthUrl() {
-    return this.threadsService.getAuthorizationUrl();
+  async getAuthUrl() {
+    const url = await this.threadsService.getAuthorizationUrl();
+    return { url };
   }
 
   @ApiOperation({ summary: 'Exchange code for token' })
