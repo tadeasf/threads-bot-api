@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, UnauthorizedException, Redirect, BadRequestException } from '@nestjs/common';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -15,7 +15,16 @@ import { CreatePostDto } from './dto/create-post.dto';
 export class ThreadsController {
   constructor(private readonly threadsService: ThreadsService) {}
 
-  @ApiOperation({ summary: 'Get authorization URL' })
+  @ApiOperation({ 
+    summary: 'Get authorization URL or redirect to Threads auth',
+    description: 'Returns auth URL as JSON or redirects directly based on redirect param'
+  })
+  @ApiQuery({
+    name: 'redirect',
+    required: false,
+    type: Boolean,
+    description: 'If true, redirects to Threads auth page'
+  })
   @ApiResponse({ 
     status: 200, 
     description: 'Returns the authorization URL',
@@ -29,9 +38,13 @@ export class ThreadsController {
       }
     }
   })
-  @Get('auth-url')
-  async getAuthUrl() {
+  @ApiResponse({ status: 302, description: 'Redirects to Threads auth page' })
+  @Get('auth')
+  async handleAuth(@Query('redirect') redirect?: boolean) {
     const url = await this.threadsService.getAuthorizationUrl();
+    if (redirect) {
+      return { url, statusCode: 302 };
+    }
     return { url };
   }
 
@@ -41,6 +54,11 @@ export class ThreadsController {
     description: 'Authorization code from Threads',
     required: true
   })
+  @ApiQuery({
+    name: 'state',
+    description: 'State parameter for security verification',
+    required: false
+  })
   @ApiResponse({ 
     status: 200, 
     description: 'Returns the access token',
@@ -49,12 +67,36 @@ export class ThreadsController {
       properties: {
         accessToken: { type: 'string' },
         userId: { type: 'string' },
-        expiresIn: { type: 'number' }
+        expiresIn: { type: 'number' },
+        tokenType: { type: 'string' }
       }
     }
   })
+  @ApiResponse({ status: 400, description: 'Invalid request or code' })
   @Get('callback')
-  handleCallback(@Query('code') code: string) {
+  async handleCallback(
+    @Query('code') code: string,
+    @Query('state') state?: string,
+    @Query('error') error?: string,
+    @Query('error_description') errorDescription?: string
+  ) {
+    // Handle auth errors
+    if (error) {
+      throw new BadRequestException({
+        error,
+        description: errorDescription
+      });
+    }
+
+    if (!code) {
+      throw new BadRequestException('Authorization code is required');
+    }
+
+    // Verify state if using CSRF protection
+    if (state) {
+      await this.threadsService.verifyState(state);
+    }
+
     return this.threadsService.exchangeCodeForToken(code);
   }
 

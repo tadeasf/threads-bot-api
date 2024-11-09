@@ -20,31 +20,37 @@ THREADS_REDIRECT_URI=http://localhost:3000/threads/callback
 
 ## Authentication Flow
 
-The API implements OAuth2 authentication for Threads. Here's how it works:
+The API implements OAuth2 authentication for Threads with CSRF protection. Here's how it works:
 
-1. **Get Authorization URL**
+1. **Get Authorization URL or Direct Redirect**
    ```bash
-   GET /threads/auth-url
+   # Get URL as JSON
+   GET /threads/auth
+   
+   # Direct redirect to Threads auth page
+   GET /threads/auth?redirect=true
    ```
-   Returns a URL that users need to visit to authorize your app. The URL includes:
+   Returns (or redirects to) a URL that includes:
    - Your app ID
    - Redirect URI
-   - Required scopes (threads_basic, threads_content_publish, etc.)
+   - Required scopes
+   - CSRF state token
 
 2. **User Authorization**
-   - User visits the authorization URL
-   - Logs into their Threads account
-   - Grants permissions to your app
-   - Threads redirects back to your `THREADS_REDIRECT_URI` with an auth code
+   - User authorizes your app on Threads
+   - Threads redirects back with:
+     - Authorization code
+     - State parameter (for CSRF verification)
 
 3. **Exchange Code for Token**
    ```bash
-   GET /threads/callback?code=AUTHORIZATION_CODE
+   GET /threads/callback?code=AUTHORIZATION_CODE&state=STATE_TOKEN
    ```
-   The API exchanges this code for:
+   Returns:
    - Access token
    - User ID
    - Token expiration time
+   - Token type
 
 4. **Using the Token**
    ```bash
@@ -61,14 +67,21 @@ The API implements OAuth2 authentication for Threads. Here's how it works:
 
 ## Example Usage
 
-1. Get the auth URL:
+1. Start auth flow (two options):
 ```bash
-curl http://localhost:3000/threads/auth-url
+# Get auth URL
+curl http://localhost:3000/threads/auth
+
+# Or redirect directly
+curl -L http://localhost:3000/threads/auth?redirect=true
 ```
 
-2. Visit the returned URL and authorize the app
+2. Complete authorization on Threads
 
-3. Handle the callback (automatic)
+3. Automatic callback handling with:
+   - CSRF verification
+   - Error handling
+   - Token generation
 
 4. Create a post:
 ```bash
@@ -108,20 +121,25 @@ The API requires the following Threads permissions:
 - `threads_manage_replies` (optional) - Manage post replies
 - `threads_read_replies` (optional) - Read post replies
 
-## Token Management
+## Security Features
 
-- Access tokens are valid for 60 days
-- Store tokens securely
-- Implement token refresh before expiration
-- Handle token revocation gracefully
+- CSRF protection with state parameter
+- Environment variable validation
+- Automatic state cleanup (30-minute expiry)
+- Comprehensive error handling
+- Request validation
+- Secure token handling
 
 ## Error Handling
 
-The API handles common authentication errors:
+The API handles:
+- Invalid/expired state tokens
+- Missing authorization codes
+- Failed token exchanges
 - Invalid tokens
-- Expired tokens
 - Missing permissions
 - Rate limits
+- Configuration errors
 
 ## Security Notes
 
@@ -130,5 +148,6 @@ The API handles common authentication errors:
 - Use HTTPS in production
 - Validate redirect URIs
 - Implement rate limiting
+- Monitor state token usage
 
 This project was created using `bun init` in bun v1.1.29. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.

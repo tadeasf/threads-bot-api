@@ -1,10 +1,21 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/threads/auth-url": {
+    "/threads/auth": {
       "get": {
-        "operationId": "ThreadsController_getAuthUrl",
-        "parameters": [],
+        "description": "Returns auth URL as JSON or redirects directly based on redirect param",
+        "operationId": "ThreadsController_handleAuth",
+        "parameters": [
+          {
+            "name": "redirect",
+            "required": false,
+            "in": "query",
+            "description": "If true, redirects to Threads auth page",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Returns the authorization URL",
@@ -21,9 +32,12 @@
                 }
               }
             }
+          },
+          "302": {
+            "description": "Redirects to Threads auth page"
           }
         },
-        "summary": "Get authorization URL",
+        "summary": "Get authorization URL or redirect to Threads auth",
         "tags": [
           "threads"
         ]
@@ -38,6 +52,31 @@
             "required": true,
             "in": "query",
             "description": "Authorization code from Threads",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "description": "State parameter for security verification",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_description",
+            "required": true,
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -59,11 +98,17 @@
                     },
                     "expiresIn": {
                       "type": "number"
+                    },
+                    "tokenType": {
+                      "type": "string"
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request or code"
           }
         },
         "summary": "Exchange code for token",
