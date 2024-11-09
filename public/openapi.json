@@ -18,26 +18,36 @@
         ],
         "responses": {
           "200": {
-            "description": "Returns the authorization URL",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "url": {
-                      "type": "string",
-                      "example": "https://www.threads.net/oauth/authorize?client_id=..."
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Returns the authorization URL"
           },
           "302": {
             "description": "Redirects to Threads auth page"
           }
         },
         "summary": "Get authorization URL or redirect to Threads auth",
+        "tags": [
+          "threads"
+        ]
+      }
+    },
+    "/threads/auth-result": {
+      "get": {
+        "operationId": "ThreadsController_showAuthUrl",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
         "tags": [
           "threads"
         ]

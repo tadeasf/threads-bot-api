@@ -150,4 +150,20 @@ The API handles:
 - Implement rate limiting
 - Monitor state token usage
 
+## Running with HTTPS (Development)
+
+The Threads API requires HTTPS. We use Docker and localtunnel to handle this in development:
+
+1. Start the services:
+```bash
+docker-compose up
+```
+
+2. Your API will be available at:
+- HTTPS: https://your-subdomain.loca.lt
+- Local: http://localhost:3000
+
+3. Update your Meta App settings:
+- Add `https://your-subdomain.loca.lt/threads/callback` to Valid OAuth Redirect URIs
+
 This project was created using `bun init` in bun v1.1.29. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.

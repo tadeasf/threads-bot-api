@@ -27,24 +27,33 @@ export class ThreadsController {
   })
   @ApiResponse({ 
     status: 200, 
-    description: 'Returns the authorization URL',
-    schema: {
-      type: 'object',
-      properties: {
-        url: {
-          type: 'string',
-          example: 'https://www.threads.net/oauth/authorize?client_id=...'
-        }
-      }
-    }
+    description: 'Returns the authorization URL'
   })
-  @ApiResponse({ status: 302, description: 'Redirects to Threads auth page' })
+  @ApiResponse({ 
+    status: 302, 
+    description: 'Redirects to Threads auth page' 
+  })
   @Get('auth')
+  @Redirect()
   async handleAuth(@Query('redirect') redirect?: boolean) {
     const url = await this.threadsService.getAuthorizationUrl();
+    
     if (redirect) {
-      return { url, statusCode: 302 };
+      return { 
+        url,
+        statusCode: 302
+      };
     }
+    
+    return { 
+      url: '/threads/auth-result',
+      statusCode: 302,
+      data: { url }
+    };
+  }
+
+  @Get('auth-result')
+  async showAuthUrl(@Query('url') url: string) {
     return { url };
   }
 

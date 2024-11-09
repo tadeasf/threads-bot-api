@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - THREADS_APP_ID=${THREADS_APP_ID}
+      - THREADS_APP_SECRET=${THREADS_APP_SECRET}
+      - THREADS_REDIRECT_URI=https://threads-bot-api.loca.lt/threads/callback
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: bun run start:dev
+
+  localtunnel:
+    image: efrecon/localtunnel
+    depends_on:
+      - api
+    command: --port 3000 --subdomain your-subdomain
