@@ -45,7 +45,7 @@ check_health() {
     local current_attempt=1
 
     while [ $current_attempt -le $max_attempts ]; do
-        if curl -s http://localhost:3000/health >/dev/null; then
+        if curl -s http://localhost:3002/health >/dev/null; then
             echo -e "${GREEN}Application is healthy!${NC}"
             return 0
         fi

@@ -58,16 +58,16 @@ jobs:
             
             # Function to kill process on port 3000
             kill_port_3000() {
-              echo "Attempting to kill process on port 3000..."
+              echo "Attempting to kill process on port 3002..."
               
               # Try fuser with sudo (non-interactive)
               if command -v fuser >/dev/null 2>&1; then
                 echo "Using fuser to kill process..."
-                echo ${{ secrets.SSH_PASSWORD }} | sudo -S fuser -k 3000/tcp || true
+                echo  | sudo -S fuser -k 3002/tcp || true
               fi
               
               # Try direct process kill if we can find PID
-              pid=$(lsof -ti:3000 2>/dev/null || ss -lptn "sport = :3000" 2>/dev/null | grep -oP "(?<=pid=)\d+" || netstat -tlnp 2>/dev/null | grep ":3000" | awk "{print \$7}" | cut -d"/" -f1)
+              pid=$(lsof -ti:3002 2>/dev/null || ss -lptn "sport = :3002" 2>/dev/null | grep -oP "(?<=pid=)\d+" || netstat -tlnp 2>/dev/null | grep ":3002" | awk "{print \$7}" | cut -d"/" -f1)
               if [ ! -z "$pid" ]; then
                 echo "Found PID: $pid, attempting to kill..."
                 kill -9 $pid || true
@@ -95,7 +95,7 @@ jobs:
                 image: ghcr.io/'$GITHUB_REPOSITORY'/threads-bot-api:${IMAGE_TAG:-latest}
                 restart: unless-stopped
                 ports:
-                  - "3000:3000"
+                  - "3002:3000"
                 environment:
                   - NODE_ENV=production
                 healthcheck:
@@ -148,7 +148,7 @@ jobs:
       - name: Smoke test
         run: |
           sleep 5  # Reduced wait time since we're already checking health
-          curl -sSf -k "http://localhost:3000/health" || (echo "Health check failed"; exit 1)
+          curl -sSf -k "http://localhost:3002/health" || (echo "Health check failed"; exit 1)
 
       - name: Rollback on failure
         if: failure()
