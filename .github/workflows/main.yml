@@ -46,16 +46,19 @@ jobs:
           envs: DEPLOY_IMAGE,GITHUB_REPOSITORY
           debug: true
           script: |
+            # Switch to bash
+            /bin/bash -c '
             echo "Starting deployment..."
             
             # Stop all running containers first
             docker compose down || true
             docker rm -f $(docker ps -aq) || true
             
-            # Create docker-compose.yml
-            echo 'services:
+            # Create docker-compose.yml with explicit repository name
+            cat > docker-compose.yml << "EOF"
+            services:
               api:
-                image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
+                image: ghcr.io/'$GITHUB_REPOSITORY'/threads-bot-api:${IMAGE_TAG:-latest}
                 restart: unless-stopped
                 ports:
                   - "3000:3000"
@@ -65,27 +68,29 @@ jobs:
                   test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
                   interval: 30s
                   timeout: 10s
-                  retries: 3' > docker-compose.yml
+                  retries: 3
+            EOF
             
             echo "Pulling image: $DEPLOY_IMAGE"
             docker pull "$DEPLOY_IMAGE"
-            IMAGE_TAG=${{ github.sha }} docker compose up -d
             
-            # Wait for container to be healthy
-            echo "Waiting for container to be healthy..."
-            for i in {1..30}; do
+            # Extract SHA from DEPLOY_IMAGE
+            SHA=$(echo "$DEPLOY_IMAGE" | cut -d: -f2)
+            IMAGE_TAG=$SHA docker compose up -d
+            
+            # Wait for container health in bash
+            for i in $(seq 1 30); do
               if docker compose ps | grep "(healthy)"; then
                 echo "Container is healthy"
-                break
+                exit 0
               fi
-              if [ $i -eq 30 ]; then
+              if [ "$i" -eq 30 ]; then
                 echo "Container failed to become healthy"
                 exit 1
               fi
               sleep 1
             done
-            
-            echo "Deployment complete"
+            '
 
       - name: Smoke test
         run: |
