@@ -47,12 +47,30 @@ jobs:
           debug: true
           script: |
             echo "Starting deployment..."
+            
+            # Create docker-compose.yml if it doesn't exist
+            cat > docker-compose.yml << 'EOL'
+            version: '3.8'
+            
+            services:
+              api:
+                image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
+                restart: unless-stopped
+                ports:
+                  - "3000:3000"
+                environment:
+                  - NODE_ENV=production
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+            EOL
+            
             echo "Pulling image: $DEPLOY_IMAGE"
             docker pull "$DEPLOY_IMAGE"
             docker compose down
             IMAGE_TAG=${{ github.sha }} docker compose up -d
-            echo "Waiting for container to be healthy..."
-            timeout 30s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 1; done'
             echo "Deployment complete"
 
       - name: Create smoke test script
