@@ -55,13 +55,21 @@ jobs:
             docker compose down --remove-orphans || true
             docker rm -f $(docker ps -aq) || true
             
-            # Kill any process using port 3000
-            sudo lsof -t -i:3000 | xargs -r sudo kill -9 || true
+            # Kill processes on port 3000 without requiring sudo password
+            if command -v fuser >/dev/null 2>&1; then
+              fuser -k 3000/tcp || true
+            else
+              # Alternative approach using netstat and kill
+              pid=$(netstat -tlnp 2>/dev/null | grep ":3000" | awk "{print \$7}" | cut -d"/" -f1)
+              if [ ! -z "$pid" ]; then
+                kill -9 $pid || true
+              fi
+            fi
             
-            # Wait a moment for ports to be released
-            sleep 2
+            # Wait for port to be released
+            sleep 5
             
-            # Create docker-compose.yml with explicit repository name
+            # Create docker-compose.yml
             cat > docker-compose.yml << "EOF"
             services:
               api:
@@ -92,8 +100,7 @@ jobs:
               fi
               echo "Start failed, cleaning up and retrying..."
               docker compose down --remove-orphans
-              sudo lsof -t -i:3000 | xargs -r sudo kill -9
-              sleep 2
+              sleep 5
             done
             
             # Wait for container health
@@ -107,7 +114,7 @@ jobs:
                 echo "Container failed to become healthy"
                 exit 1
               fi
-              sleep 1
+              sleep 2
             done
             '
 
