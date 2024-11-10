@@ -50,9 +50,16 @@ jobs:
             /bin/bash -c '
             echo "Starting deployment..."
             
-            # Stop all running containers first
-            docker compose down || true
+            # Thorough cleanup of existing containers and processes
+            echo "Cleaning up existing containers and processes..."
+            docker compose down --remove-orphans || true
             docker rm -f $(docker ps -aq) || true
+            
+            # Kill any process using port 3000
+            sudo lsof -t -i:3000 | xargs -r sudo kill -9 || true
+            
+            # Wait a moment for ports to be released
+            sleep 2
             
             # Create docker-compose.yml with explicit repository name
             cat > docker-compose.yml << "EOF"
@@ -76,9 +83,21 @@ jobs:
             
             # Extract SHA from DEPLOY_IMAGE
             SHA=$(echo "$DEPLOY_IMAGE" | cut -d: -f2)
-            IMAGE_TAG=$SHA docker compose up -d
             
-            # Wait for container health in bash
+            # Try to start container, with retries
+            for attempt in $(seq 1 3); do
+              echo "Starting container (attempt $attempt)..."
+              if IMAGE_TAG=$SHA docker compose up -d; then
+                break
+              fi
+              echo "Start failed, cleaning up and retrying..."
+              docker compose down --remove-orphans
+              sudo lsof -t -i:3000 | xargs -r sudo kill -9
+              sleep 2
+            done
+            
+            # Wait for container health
+            echo "Waiting for container to be healthy..."
             for i in $(seq 1 30); do
               if docker compose ps | grep "(healthy)"; then
                 echo "Container is healthy"
