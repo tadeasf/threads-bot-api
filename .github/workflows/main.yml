@@ -48,10 +48,12 @@ jobs:
           script: |
             echo "Starting deployment..."
             
-            # Create temporary file
-            echo 'version: "3.8"
-
-            services:
+            # Stop all running containers first
+            docker compose down || true
+            docker rm -f $(docker ps -aq) || true
+            
+            # Create docker-compose.yml
+            echo 'services:
               api:
                 image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
                 restart: unless-stopped
@@ -67,46 +69,28 @@ jobs:
             
             echo "Pulling image: $DEPLOY_IMAGE"
             docker pull "$DEPLOY_IMAGE"
-            docker compose down
             IMAGE_TAG=${{ github.sha }} docker compose up -d
-            echo "Deployment complete"
-
-      - name: Create smoke test script
-        run: |
-          mkdir -p scripts
-          cat > scripts/smoke-test.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          
-          url=""
-          while [[ $# -gt 0 ]]; do
-            case $1 in
-              --url)
-                url="$2"
-                shift 2
-                ;;
-              *)
-                echo "Unknown option: $1"
+            
+            # Wait for container to be healthy
+            echo "Waiting for container to be healthy..."
+            for i in {1..30}; do
+              if docker compose ps | grep "(healthy)"; then
+                echo "Container is healthy"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Container failed to become healthy"
                 exit 1
-                ;;
-            esac
-          done
-          
-          if [ -z "$url" ]; then
-            echo "Error: --url parameter is required"
-            exit 1
-          fi
-          
-          echo "Testing $url..."
-          curl -sSf -k "$url/health" || (echo "Health check failed"; exit 1)
-          echo "Smoke test passed!"
-          EOF
-          chmod +x scripts/smoke-test.sh
+              fi
+              sleep 1
+            done
+            
+            echo "Deployment complete"
 
       - name: Smoke test
         run: |
-          sleep 10  # Give the container time to start
-          ./scripts/smoke-test.sh --url "https://${{ vars.APP_DOMAIN }}"
+          sleep 5  # Reduced wait time since we're already checking health
+          curl -sSf -k "http://localhost:3000/health" || (echo "Health check failed"; exit 1)
 
       - name: Rollback on failure
         if: failure()
