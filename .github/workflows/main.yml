@@ -46,15 +46,16 @@ jobs:
           envs: DEPLOY_IMAGE,GITHUB_REPOSITORY
           debug: true
           script: |
+            bash -c '
             echo "Starting deployment..."
             
             # Create docker-compose.yml if it doesn't exist
-            cat > docker-compose.yml << 'EOL'
-            version: '3.8'
+            cat > docker-compose.yml << EOL
+            version: '"'"'3.8'"'"'
             
             services:
               api:
-                image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
+                image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:\${IMAGE_TAG:-latest}
                 restart: unless-stopped
                 ports:
                   - "3000:3000"
@@ -72,6 +73,7 @@ jobs:
             docker compose down
             IMAGE_TAG=${{ github.sha }} docker compose up -d
             echo "Deployment complete"
+            '
 
       - name: Create smoke test script
         run: |
