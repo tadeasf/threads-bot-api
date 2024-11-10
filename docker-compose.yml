@@ -5,7 +5,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       - NODE_ENV=production
       - THREADS_APP_ID=${THREADS_APP_ID}
