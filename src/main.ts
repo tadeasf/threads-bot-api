@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -32,8 +33,8 @@ This API uses OAuth2 for authentication with Threads. The flow is:
     .addTag('threads', 'Endpoints for interacting with Threads API')
     .addTag('chess', 'Endpoints for Chess.com integration')
     .addBearerAuth()
-    .setContact('Developer', 'https://github.com/yourusername', 'your@email.com')
-    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+    .setContact('Developer', 'https://github.com/tadeasf', 'business@tadeasfort.com')
+    .setLicense('MIT', 'https://opensource.org/licenses/GPL-3.0')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -47,16 +48,18 @@ This API uses OAuth2 for authentication with Threads. The flow is:
   // Serve static files
   app.useStaticAssets(join(process.cwd(), 'public'));
 
-  // Traditional Swagger UI at /api
-  SwaggerModule.setup('api', app, document);
+  // Set up Swagger UI endpoints without the /api prefix
+  app.use('/docs', express.static(join(process.cwd(), 'public/docs')));
+  SwaggerModule.setup('api/docs', app, document); // This will be accessible at /api/docs
+  SwaggerModule.setup('docs', app, document);     // This will be accessible at /docs
 
   await app.listen(3000);
   
   const url = await app.getUrl();
   console.log(`
 🚀 Application is running on: ${url}
-📚 API Documentation (Scalar): ${url}/docs
-🔧 API Documentation (Swagger): ${url}/api
+📚 API Documentation: ${url}/docs
+🔧 Swagger Documentation: ${url}/api/docs
 🔗 Threads Callback URL: ${process.env.THREADS_REDIRECT_URI}
   `);
 }
