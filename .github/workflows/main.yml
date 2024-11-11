@@ -44,4 +44,4 @@ jobs:
       - name: Health check
         run: |
           sleep 30
-          curl -sSf http://localhost:3000/health || (docker compose -f docker-compose.prod.yml logs && exit 1)
+          curl -sSf http://localhost:3000/api/health || (docker compose -f docker-compose.prod.yml logs && exit 1)

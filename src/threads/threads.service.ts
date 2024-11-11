@@ -31,7 +31,14 @@ export class ThreadsService {
   async getAuthorizationUrl(): Promise<string> {
     try {
       const appId = this.configService.get<string>('THREADS_APP_ID');
-      const redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
+      let redirectUri = this.configService.get<string>('THREADS_REDIRECT_URI');
+      
+      // Ensure redirect URI includes /api prefix
+      if (!redirectUri.includes('/api/')) {
+        const url = new URL(redirectUri);
+        url.pathname = `/api${url.pathname}`;
+        redirectUri = url.toString();
+      }
       
       // Generate state for CSRF protection
       const state = crypto.randomBytes(32).toString('hex');
