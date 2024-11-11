@@ -6,158 +6,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      deployments: write
     environment:
       name: prod
-      url: https://${{ vars.APP_DOMAIN }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          bun-version: latest
 
-      - name: Build and push production image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}/threads-bot-api:latest
-            ghcr.io/${{ github.repository }}/threads-bot-api:${{ github.sha }}
+      - name: Install dependencies
+        run: bun install
 
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1.0.0
-        env:
-          DEPLOY_IMAGE: ghcr.io/${{ github.repository }}/threads-bot-api:${{ github.sha }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 391
-          envs: DEPLOY_IMAGE,GITHUB_REPOSITORY
-          debug: true
-          script: |
-            # Switch to bash
-            /bin/bash -c '
-            echo "Starting deployment..."
-            
-            # Debug: Show processes using port 3002
-            echo "Checking processes on port 3002..."
-            ps aux | grep 3002 || true
-            netstat -tulpn 2>/dev/null | grep :3002 || true
-            ss -tulpn | grep :3002 || true
-            
-            # Function to kill process on port 3002
-            kill_port_3002() {
-              echo "Attempting to kill process on port 3002..."
-              
-              # Try fuser with sudo (non-interactive)
-              if command -v fuser >/dev/null 2>&1; then
-                echo "Using fuser to kill process..."
-                echo ${{ secrets.SSH_PASSWORD }} | sudo -S fuser -k 3002/tcp || true
-              fi
-              
-              # Try direct process kill if we can find PID
-              pid=$(lsof -ti:3002 2>/dev/null || ss -lptn "sport = :3002" 2>/dev/null | grep -oP "(?<=pid=)\d+" || netstat -tlnp 2>/dev/null | grep ":3002" | awk "{print \$7}" | cut -d"/" -f1)
-              if [ ! -z "$pid" ]; then
-                echo "Found PID: $pid, attempting to kill..."
-                kill -9 $pid || true
-              fi
-            }
-            
-            # Thorough cleanup
-            echo "Cleaning up existing containers and processes..."
-            docker compose down --remove-orphans || true
-            docker rm -f $(docker ps -aq) || true
-            kill_port_3002
-            
-            # Debug: Verify port status
-            echo "Checking port status after cleanup..."
-            netstat -tulpn 2>/dev/null | grep :3002 || echo "Port 3002 appears to be free"
-            
-            # Wait for port to be released
-            echo "Waiting for port to be released..."
-            sleep 10
-            
-            # Create docker-compose.yml
-            cat > docker-compose.yml << "EOF"
-            services:
-              api:
-                image: ghcr.io/'$GITHUB_REPOSITORY'/threads-bot-api:${IMAGE_TAG:-latest}
-                restart: unless-stopped
-                ports:
-                  - "3002:3000"
-                environment:
-                  - NODE_ENV=production
-                healthcheck:
-                  test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-                  interval: 30s
-                  timeout: 10s
-                  retries: 3
-            EOF
-            
-            echo "Pulling image: $DEPLOY_IMAGE"
-            docker pull "$DEPLOY_IMAGE"
-            
-            # Extract SHA from DEPLOY_IMAGE
-            SHA=$(echo "$DEPLOY_IMAGE" | cut -d: -f2)
-            
-            # Try to start container, with retries
-            for attempt in $(seq 1 3); do
-              echo "Starting container (attempt $attempt)..."
-              kill_port_3002
-              
-              echo "Checking port status before container start..."
-              netstat -tulpn 2>/dev/null | grep :3002 || echo "Port 3002 appears to be free"
-              
-              sleep 5
-              
-              if IMAGE_TAG=$SHA docker compose up -d; then
-                break
-              fi
-              
-              echo "Start failed, cleaning up and retrying..."
-              docker compose down --remove-orphans
-              sleep 5
-            done
-            
-            # Wait for container health
-            echo "Waiting for container to be healthy..."
-            for i in $(seq 1 30); do
-              if docker compose ps | grep "(healthy)"; then
-                echo "Container is healthy"
-                exit 0
-              fi
-              if [ "$i" -eq 30 ]; then
-                echo "Container failed to become healthy"
-                exit 1
-              fi
-              sleep 2
-            done
-            '
+      - name: Build
+        run: bun run build
 
-      - name: Smoke test
+      - name: Start application with Docker Compose
         run: |
-          sleep 5  # Reduced wait time since we're already checking health
-          curl -sSf -k "http://localhost:3002/health" || (echo "Health check failed"; exit 1)
+          docker compose -f docker-compose.prod.yml up -d
+        env:
+          THREADS_APP_ID: ${{ secrets.THREADS_APP_ID }}
+          THREADS_APP_SECRET: ${{ secrets.THREADS_APP_SECRET }}
+          THREADS_REDIRECT_URI: ${{ secrets.THREADS_REDIRECT_URI }}
+          CLIENT_TOKEN: ${{ secrets.CLIENT_TOKEN }}
 
-      - name: Rollback on failure
-        if: failure()
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 391
-          script: |
-            docker compose down
-            IMAGE_TAG=latest docker compose up -d
+      - name: Health check
+        run: |
+          sleep 10
+          curl -sSf http://localhost:3000/health || (docker compose -f docker-compose.prod.yml logs && exit 1)

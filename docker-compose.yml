@@ -2,15 +2,20 @@ version: '3.8'
 
 services:
   api:
-    image: ghcr.io/${GITHUB_REPOSITORY}/threads-bot-api:${IMAGE_TAG:-latest}
-    restart: unless-stopped
+    build:
+      context: .
+      target: development
     ports:
-      - "3002:3000"
+      - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - THREADS_APP_ID=${THREADS_APP_ID}
       - THREADS_APP_SECRET=${THREADS_APP_SECRET}
       - THREADS_REDIRECT_URI=${THREADS_REDIRECT_URI}
+      - CLIENT_TOKEN=${CLIENT_TOKEN}
+    volumes:
+      - .:/app
+      - /app/node_modules
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
       interval: 30s
