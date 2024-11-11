@@ -26,14 +26,13 @@ jobs:
 
       - name: Start application with Docker Compose
         run: |
+          echo "THREADS_APP_ID=${{ secrets.THREADS_APP_ID }}" >> .env
+          echo "THREADS_APP_SECRET=${{ secrets.THREADS_APP_SECRET }}" >> .env
+          echo "THREADS_REDIRECT_URI=${{ secrets.THREADS_REDIRECT_URI }}" >> .env
+          echo "CLIENT_TOKEN=${{ secrets.CLIENT_TOKEN }}" >> .env
           docker compose -f docker-compose.prod.yml up -d
-        env:
-          THREADS_APP_ID: ${{ secrets.THREADS_APP_ID }}
-          THREADS_APP_SECRET: ${{ secrets.THREADS_APP_SECRET }}
-          THREADS_REDIRECT_URI: ${{ secrets.THREADS_REDIRECT_URI }}
-          CLIENT_TOKEN: ${{ secrets.CLIENT_TOKEN }}
 
       - name: Health check
         run: |
-          sleep 10
+          sleep 20
           curl -sSf http://localhost:3000/health || (docker compose -f docker-compose.prod.yml logs && exit 1)

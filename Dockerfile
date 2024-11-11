@@ -6,10 +6,10 @@ COPY package.json bun.lockb ./
 RUN bun install
 COPY . .
 
-# Install localtunnel
-RUN bun add -g localtunnel
+# Install localtunnel globally with bun
+RUN bun install -g localtunnel
 
-CMD ["sh", "-c", "bun run dev & lt --port 3000 --subdomain threads-bot-api"]
+CMD ["sh", "-c", "bun run dev & bun x lt --port 3000 --subdomain threads-bot-api"]
 
 # Production stage
 FROM oven/bun:1.1.29 as production
@@ -20,11 +20,10 @@ RUN bun install --production
 COPY . .
 RUN bun run build
 
-# Install localtunnel
-RUN bun add -g localtunnel
+# Install localtunnel globally with bun
+RUN bun install -g localtunnel
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# Start both the application and localtunnel
-CMD ["sh", "-c", "bun run start:prod & lt --port 3000 --subdomain threads-bot-api"] 
+CMD ["sh", "-c", "bun run start:prod & bun x lt --port 3000 --subdomain threads-bot-api"] 
