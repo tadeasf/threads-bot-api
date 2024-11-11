@@ -24,13 +24,22 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Start application with Docker Compose
+      - name: Create env file
         run: |
-          echo "THREADS_APP_ID=${{ secrets.THREADS_APP_ID }}" >> .env
-          echo "THREADS_APP_SECRET=${{ secrets.THREADS_APP_SECRET }}" >> .env
-          echo "THREADS_REDIRECT_URI=${{ secrets.THREADS_REDIRECT_URI }}" >> .env
-          echo "CLIENT_TOKEN=${{ secrets.CLIENT_TOKEN }}" >> .env
-          docker compose -f docker-compose.prod.yml up -d
+          cat << EOF > .env
+          THREADS_APP_ID=${{ vars.THREADS_APP_ID }}
+          THREADS_APP_SECRET=${{ vars.THREADS_APP_SECRET }}
+          THREADS_REDIRECT_URI=${{ vars.THREADS_REDIRECT_URI }}
+          CLIENT_TOKEN=${{ vars.CLIENT_TOKEN }}
+          EOF
+
+      - name: Start application with Docker Compose
+        run: docker compose -f docker-compose.prod.yml up -d
+        env:
+          THREADS_APP_ID: ${{ vars.THREADS_APP_ID }}
+          THREADS_APP_SECRET: ${{ vars.THREADS_APP_SECRET }}
+          THREADS_REDIRECT_URI: ${{ vars.THREADS_REDIRECT_URI }}
+          CLIENT_TOKEN: ${{ vars.CLIENT_TOKEN }}
 
       - name: Health check
         run: |
