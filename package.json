@@ -22,6 +22,7 @@
     "@nestjs/platform-express": "^10.4.7",
     "@nestjs/schedule": "^4.1.1",
     "@nestjs/swagger": "^8.0.5",
+    "@scalar/nestjs-api-reference": "^0.3.168",
     "axios": "^1.7.7",
     "graphql-request": "^7.1.2",
     "localtunnel": "^2.0.2",

@@ -1,10 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ApiReference } from '@scalar/nestjs-api-reference';
 import { AppModule } from './app.module';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -48,18 +48,25 @@ This API uses OAuth2 for authentication with Threads. The flow is:
   // Serve static files
   app.useStaticAssets(join(process.cwd(), 'public'));
 
-  // Set up Swagger UI endpoints without the /api prefix
-  app.use('/docs', express.static(join(process.cwd(), 'public/docs')));
-  SwaggerModule.setup('api/docs', app, document); // This will be accessible at /api/docs
-  SwaggerModule.setup('docs', app, document);     // This will be accessible at /docs
+  // Set up Swagger UI endpoints
+  SwaggerModule.setup('api/docs', app, document);
+
+  // Set up Scalar UI
+  app.use('/docs', ApiReference({
+    title: 'Threads Bot API',
+    logo: 'https://raw.githubusercontent.com/tadeasf/threads-bot-api/main/public/logo.png',
+    theme: 'dark',
+    openApiPath: '/openapi.json',
+    spec: document
+  }));
 
   await app.listen(3000);
   
   const url = await app.getUrl();
   console.log(`
 🚀 Application is running on: ${url}
-📚 API Documentation: ${url}/docs
-🔧 Swagger Documentation: ${url}/api/docs
+📚 API Documentation (Scalar): ${url}/docs
+🔧 API Documentation (Swagger): ${url}/api/docs
 🔗 Threads Callback URL: ${process.env.THREADS_REDIRECT_URI}
   `);
 }
