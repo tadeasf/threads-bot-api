@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThreadsModule } from './threads/threads.module';
 import { TunnelModule } from './tunnel/tunnel.module';
+import { AppController } from './app.controller';
 import environmentConfig from './config/environment.config';
 
 @Module({
@@ -13,5 +14,6 @@ import environmentConfig from './config/environment.config';
     ThreadsModule,
     TunnelModule
   ],
+  controllers: [AppController],
 })
 export class AppModule {} 

@@ -11,5 +11,5 @@ export default registerAs('environment', (): EnvironmentConfig => ({
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV !== 'production',
   tunnelSubdomain: process.env.TUNNEL_SUBDOMAIN || 'threads-bot-api',
-  productionUrl: process.env.PRODUCTION_URL || 'https://your-production-domain.com'
+  productionUrl: 'https://threads-bot-api.loca.lt'
 })); 

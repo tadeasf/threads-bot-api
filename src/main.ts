@@ -8,6 +8,12 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Enable CORS
+  app.enableCors();
+
+  // Add global prefix
+  app.setGlobalPrefix('api');
+
   // Swagger/OpenAPI setup
   const config = new DocumentBuilder()
     .setTitle('Threads Bot API')
@@ -46,10 +52,12 @@ This API uses OAuth2 for authentication with Threads. The flow is:
 
   await app.listen(3000);
   
+  const url = await app.getUrl();
   console.log(`
-🚀 Application is running on: http://localhost:3000
-📚 API Documentation (Scalar): http://localhost:3000/docs
-🔧 API Documentation (Swagger): http://localhost:3000/api
+🚀 Application is running on: ${url}
+📚 API Documentation (Scalar): ${url}/docs
+🔧 API Documentation (Swagger): ${url}/api
+🔗 Threads Callback URL: ${process.env.THREADS_REDIRECT_URI}
   `);
 }
 bootstrap();
